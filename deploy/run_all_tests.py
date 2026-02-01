@@ -10,25 +10,12 @@ import time
 import subprocess
 import json
 from datetime import datetime
+from pathlib import Path
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
+# Add modules directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "python_env" / "modules"))
 
-CONFIG = {
-    # Raspberry Pi Configuration
-    'pi_host': '192.168.178.66',
-    'pi_user': 'pi',
-    'pi_password': 'pi',  # Will use SSH key if available
-    
-    # Project paths
-    'project_dir': '/home/pi/ids2-soc-pipeline',
-    'python_venv': '/home/pi/ids2-soc-pipeline/python_env/venv',
-    
-    # Test configuration
-    'test_timeout': 300,  # 5 minutes per test
-    'verbose': True,
-}
+from config_manager import ConfigManager
 
 # ============================================================================
 # PROGRESS TRACKING
@@ -114,10 +101,12 @@ class TestProgress:
 class SSHExecutor:
     """Execute commands on Raspberry Pi via SSH"""
     
-    def __init__(self, host, user, password=None):
+    def __init__(self, host, user, password=None, project_dir: str = "", python_venv: str = ""):
         self.host = host
         self.user = user
         self.password = password
+        self.project_dir = project_dir
+        self.python_venv = python_venv
     
     def execute(self, command, timeout=60):
         """Execute command via SSH"""
@@ -145,7 +134,7 @@ class SSHExecutor:
     
     def execute_python(self, script, timeout=60):
         """Execute Python script on Pi"""
-        command = f"cd {CONFIG['project_dir']} && source {CONFIG['python_venv']}/bin/activate && python3 -c '{script}'"
+        command = f"cd {self.project_dir} && source {self.python_venv}/bin/activate && python3 -c '{script}'"
         return self.execute(command, timeout)
 
 # ============================================================================
@@ -155,9 +144,12 @@ class SSHExecutor:
 class TestSuite:
     """Test suite for IDS2 SOC Pipeline"""
     
-    def __init__(self, ssh):
+    def __init__(self, ssh: SSHExecutor, config_manager: ConfigManager):
         self.ssh = ssh
+        self.config_manager = config_manager
         self.progress = TestProgress(total_tests=15)  # Update based on actual test count
+        self.aws_profile = self.config_manager.get('aws.profile')
+        self.project_dir = self.config_manager.get('paths.project_dir', '/home/pi/ids2-soc-pipeline') # Assuming a default if not in config
     
     # ========================================================================
     # PHASE 1: PRE-DEPLOYMENT TESTS
@@ -211,13 +203,13 @@ class TestSuite:
         self.progress.start_test("Project Directory")
         start = time.time()
         
-        success, stdout, stderr = self.ssh.execute(f'test -d {CONFIG["project_dir"]} && echo "exists"')
+        success, stdout, stderr = self.ssh.execute(f'test -d {self.project_dir} && echo "exists"')
         duration = time.time() - start
         
         if success and "exists" in stdout:
             self.progress.pass_test("Project Directory", duration)
         else:
-            self.progress.fail_test("Project Directory", f"Directory {CONFIG['project_dir']} not found", duration)
+            self.progress.fail_test("Project Directory", f"Directory {self.project_dir} not found", duration)
     
     # ========================================================================
     # PHASE 2: COMPONENT TESTS
@@ -230,8 +222,8 @@ class TestSuite:
         
         script = """
 import sys
-sys.path.insert(0, 'python_env')
-from modules.config_manager import ConfigManager
+sys.path.insert(0, 'python_env/modules')
+from config_manager import ConfigManager
 
 try:
     config = ConfigManager('config.yaml')
@@ -257,7 +249,7 @@ except Exception as e:
         self.progress.start_test("AWS Credentials")
         start = time.time()
         
-        success, stdout, stderr = self.ssh.execute('aws sts get-caller-identity --profile moi33')
+        success, stdout, stderr = self.ssh.execute(f'aws sts get-caller-identity --profile {self.aws_profile}')
         duration = time.time() - start
         
         if success:
@@ -273,9 +265,9 @@ except Exception as e:
         
         script = """
 import sys
-sys.path.insert(0, 'python_env')
-from modules.config_manager import ConfigManager
-from modules.aws_manager import AWSManager
+sys.path.insert(0, 'python_env/modules')
+from config_manager import ConfigManager
+from aws_manager import AWSManager
 
 try:
     config = ConfigManager('config.yaml')
@@ -332,7 +324,7 @@ except Exception as e:
         start = time.time()
         
         success, stdout, stderr = self.ssh.execute(
-            f'cd {CONFIG["project_dir"]} && docker-compose -f docker/docker-compose.yml config > /dev/null && echo "valid"'
+            f'cd {self.project_dir} && docker-compose -f docker/docker-compose.yml config > /dev/null && echo "valid"'
         )
         duration = time.time() - start
         
@@ -348,8 +340,8 @@ except Exception as e:
         
         print("   Pulling Docker images (this may take a few minutes)...")
         success, stdout, stderr = self.ssh.execute(
-            f'cd {CONFIG["project_dir"]} && docker-compose -f docker/docker-compose.yml pull',
-            timeout=600  # 10 minutes
+            f'cd {self.project_dir} && docker-compose -f docker/docker-compose.yml pull',
+            timeout=self.config_manager.get('testing.test_timeout_seconds', 600) # Use test timeout
         )
         duration = time.time() - start
         
@@ -365,8 +357,8 @@ except Exception as e:
         
         print("   Starting Docker services...")
         success, stdout, stderr = self.ssh.execute(
-            f'cd {CONFIG["project_dir"]} && docker-compose -f docker/docker-compose.yml up -d',
-            timeout=180
+            f'cd {self.project_dir} && docker-compose -f docker/docker-compose.yml up -d',
+            timeout=self.config_manager.get('testing.test_timeout_seconds', 180) # Use test timeout
         )
         
         if success:
@@ -376,7 +368,7 @@ except Exception as e:
             
             # Check service status
             success2, stdout2, stderr2 = self.ssh.execute(
-                f'cd {CONFIG["project_dir"]} && docker-compose -f docker/docker-compose.yml ps'
+                f'cd {self.project_dir} && docker-compose -f docker/docker-compose.yml ps'
             )
             
             duration = time.time() - start
@@ -435,8 +427,8 @@ except Exception as e:
         
         print("   Stopping Docker services...")
         success, stdout, stderr = self.ssh.execute(
-            f'cd {CONFIG["project_dir"]} && docker-compose -f docker/docker-compose.yml down',
-            timeout=120
+            f'cd {self.project_dir} && docker-compose -f docker/docker-compose.yml down',
+            timeout=self.config_manager.get('testing.test_timeout_seconds', 120) # Use test timeout
         )
         duration = time.time() - start
         
@@ -462,7 +454,7 @@ except Exception as e:
         all_exist = True
         for file in files_to_check:
             success, stdout, stderr = self.ssh.execute(
-                f'test -f {CONFIG["project_dir"]}/{file} && echo "exists" || echo "missing"'
+                f'test -f {self.project_dir}/{file} && echo "exists" || echo "missing"'
             )
             if "missing" in stdout:
                 all_exist = False
@@ -485,7 +477,7 @@ except Exception as e:
         """Run all tests"""
         print(f"\n{'='*80}")
         print(f"IDS2 SOC Pipeline - Comprehensive Test Suite")
-        print(f"Target: {CONFIG['pi_user']}@{CONFIG['pi_host']}")
+        print(f"Target: {self.ssh.user}@{self.ssh.host}")
         print(f"{'='*80}\n")
         
         # Run tests in order
@@ -520,15 +512,35 @@ def main():
     print(f"IDS2 SOC Pipeline - Test Runner")
     print(f"{'='*80}\n")
     
+    # Initialize ConfigManager
+    try:
+        config_manager = ConfigManager()
+        raspberry_pi_remote_config = config_manager.get_section('raspberry_pi_remote')
+        testing_config = config_manager.get_section('testing')
+        paths_config = config_manager.get_section('paths')
+        
+        pi_host = raspberry_pi_remote_config['host']
+        pi_user = raspberry_pi_remote_config['user']
+        pi_password = os.getenv("RASPBERRY_PI_PASSWORD", raspberry_pi_remote_config.get('password')) # Use env var if set
+        
+        project_dir = paths_config.get('project_dir', '/home/pi/ids2-soc-pipeline') # Default if not in config
+        python_venv = f"{project_dir}/python_env/venv" # Assuming venv is always here
+        
+    except Exception as e:
+        print(f"❌ Failed to load configuration: {e}")
+        sys.exit(1)
+
     # Initialize SSH executor
     ssh = SSHExecutor(
-        host=CONFIG['pi_host'],
-        user=CONFIG['pi_user'],
-        password=CONFIG.get('pi_password')
+        host=pi_host,
+        user=pi_user,
+        password=pi_password,
+        project_dir=project_dir,
+        python_venv=python_venv
     )
     
     # Run tests
-    suite = TestSuite(ssh)
+    suite = TestSuite(ssh, config_manager)
     success = suite.run_all()
     
     if success:

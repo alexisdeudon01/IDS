@@ -40,7 +40,7 @@ scrape_configs:
   # ==========================================================================
   - job_name: 'ids2-agent'
     static_configs:
-      - targets: ['host.docker.internal:9100']
+      - targets: ['ids2-agent:9100']
         labels:
           service: 'ids2-agent'
           component: 'multi-process-agent'

@@ -1,286 +1,171 @@
-# ============================================================================
-# IDS2 SOC Pipeline - Master Configuration
-# Raspberry Pi 5 (8GB RAM, 4 cores, aarch64)
-# ============================================================================
-
-# ============================================================================
-# RASPBERRY PI CONFIGURATION
-# ============================================================================
 raspberry_pi:
-  model: "Raspberry Pi 5"
+  model: Raspberry Pi 5
   ram_gb: 8
   cpu_cores: 4
-  architecture: "aarch64"
-  os: "Debian GNU/Linux 13 (Trixie)"
-  ip_address: "192.168.178.66"
-  hostname: "192.168.178.66"  # Use IP instead of hostname
-  network_interface: "eth0"  # ONLY eth0 allowed
-
-# ============================================================================
-# RESOURCE LIMITS (NON-NEGOTIABLE)
-# ============================================================================
+  architecture: aarch64
+  os: Debian GNU/Linux 13 (Trixie)
+  ip_address: 192.168.178.66
+  hostname: 192.168.178.66
+  network_interface: eth0
 resources:
-  # Maximum resource usage
   max_cpu_percent: 70.0
   max_ram_percent: 70.0
-  
-  # Throttling thresholds
-  throttle_threshold_1: 50.0  # Light throttling
-  throttle_threshold_2: 60.0  # Medium throttling
-  throttle_threshold_3: 70.0  # Heavy throttling
-  
-  # Monitoring
+  throttle_threshold_1: 50.0
+  throttle_threshold_2: 60.0
+  throttle_threshold_3: 70.0
   check_interval_seconds: 2
   gc_threshold_ram_percent: 65.0
   gc_min_interval_seconds: 30
-
-# ============================================================================
-# AWS CONFIGURATION
-# ============================================================================
 aws:
-  # AWS Profile (for boto3)
-  profile: "moi33"
-  region: "us-east-1"
-  
-  # OpenSearch Domain
-  opensearch_domain: "ids2-soc-domain"
-  opensearch_endpoint: ""  # Will be auto-detected or set manually
-  
-  # Index configuration
-  index_prefix: "ids2-logs"
-  index_pattern: "ids2-logs-*"
-  
-  # Bulk ingestion settings
+  profile: moi33
+  region: us-east-1
+  opensearch_domain: ids2-soc-domain
+  opensearch_endpoint: https://search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com
+  iam_user_arn: '"arn:aws:iam::211125764416:user/alexis"'
+  index_prefix: ids2-logs
+  index_pattern: ids2-logs-*
   bulk_size: 100
   bulk_timeout: 30
   bulk_retry_attempts: 3
   bulk_retry_backoff: 2
-
-# ============================================================================
-# DOCKER CONFIGURATION
-# ============================================================================
+opensearch_credentials:
+  master_user: OPENSEARCH_MASTER_USER
+  master_pass: OPENSEARCH_MASTER_PASS
+opensearch_creation:
+  engine_version: OpenSearch_2.11
+  instance_type: t3.small.search
+  instance_count: 1
+  ebs_volume_type: gp3
+  ebs_volume_size: 10
 docker:
-  compose_file: "docker/docker-compose.yml"
-  
-  # Service resource limits
+  compose_file: docker/docker-compose.yml
   services:
     vector:
       cpu_limit: 1.0
-      memory_limit: "1024m"
-      memory_reservation: "512m"
-    
+      memory_limit: 1024m
+      memory_reservation: 512m
     redis:
       cpu_limit: 0.5
-      memory_limit: "512m"
-      memory_reservation: "256m"
-    
+      memory_limit: 512m
+      memory_reservation: 256m
     prometheus:
       cpu_limit: 0.5
-      memory_limit: "512m"
-      memory_reservation: "256m"
-    
+      memory_limit: 512m
+      memory_reservation: 256m
     grafana:
       cpu_limit: 0.5
-      memory_limit: "512m"
-      memory_reservation: "256m"
-
-# ============================================================================
-# VECTOR CONFIGURATION
-# ============================================================================
+      memory_limit: 512m
+      memory_reservation: 256m
 vector:
-  config_file: "vector/vector.toml"
-  
-  # Source
-  log_file: "/mnt/ram_logs/eve.json"
-  
-  # Buffer
-  buffer_dir: "/var/lib/vector/buffer"
+  config_file: vector/vector.toml
+  log_file: /mnt/ram_logs/eve.json
+  buffer_dir: /var/lib/vector/buffer
   buffer_max_size_mb: 256
-  
-  # Redis fallback
-  redis_url: "redis://redis:6379/0"
-  redis_key_prefix: "vector:fallback"
-  
-  # Batch settings
+  buffer_max_size_bytes: 268435456
+  redis_url: redis://redis:6379/0
+  redis_key_prefix: vector:fallback
   batch_max_events: 100
   batch_timeout_secs: 30
-  
-  # Health check
   health_check_enabled: true
   health_check_interval: 30
-  
-  # Metrics
   metrics_port: 9101
-
-# ============================================================================
-# SURICATA CONFIGURATION
-# ============================================================================
+  http_port: 8282
 suricata:
-  config_file: "suricata/suricata.yaml"
-  
-  # Network
-  home_net: "192.168.178.0/24"
-  external_net: "!$HOME_NET"
-  
-  # Output
-  eve_log_file: "/mnt/ram_logs/eve.json"
-  
-  # Rules
+  config_file: suricata/suricata.yaml
+  home_net: 192.168.178.0/24
+  external_net: '!$HOME_NET'
+  eve_log_file: /mnt/ram_logs/eve.json
   rule_files:
-    - "/etc/suricata/rules/suricata.rules"
-  
-  # Performance
+  - /etc/suricata/rules/suricata.rules
   threads: 2
-  detect_profile: "medium"
-  
-  # Memory limits
+  detect_profile: medium
   stream_memcap_mb: 128
   reassembly_memcap_mb: 256
   flow_memcap_mb: 128
   defrag_memcap_mb: 32
-
-# ============================================================================
-# MONITORING CONFIGURATION
-# ============================================================================
 monitoring:
-  # Prometheus
   prometheus_port: 9100
   prometheus_scrape_interval: 15
-  
-  # Grafana
   grafana_port: 3000
-  grafana_admin_user: "admin"
-  grafana_admin_password: "admin"  # Change in production!
-  
-  # Metrics retention
+  grafana_admin_user: GRAFANA_ADMIN_USER
+  grafana_admin_password: GRAFANA_ADMIN_PASSWORD
   metrics_retention_days: 7
-  
-  # Alerting
   alert_cpu_threshold: 80
   alert_ram_threshold: 80
   alert_disk_threshold: 90
-
-# ============================================================================
-# GIT WORKFLOW CONFIGURATION
-# ============================================================================
 git:
-  required_branch: "dev"
+  required_branch: dev
   auto_commit: true
   auto_push: true
-  commit_message_prefix: "chore(dev):"
-  
-  # Remote
-  remote_name: "origin"
-
-# ============================================================================
-# LOGGING CONFIGURATION
-# ============================================================================
+  commit_message_prefix: 'chore(dev):'
+  remote_name: origin
+  author_name: GIT_AUTHOR_NAME
+  author_email: GIT_AUTHOR_EMAIL
+  committer_name: GIT_COMMITTER_NAME
+  committer_email: GIT_COMMITTER_EMAIL
 logging:
-  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  format: "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
-  
-  # Log files
-  agent_log: "/var/log/ids2/agent.log"
-  error_log: "/var/log/ids2/error.log"
-  
-  # Rotation
-  max_bytes: 10485760  # 10MB
+  level: INFO
+  format: '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
+  agent_log: /var/log/ids2/agent.log
+  error_log: /var/log/ids2/error.log
+  max_bytes: 10485760
   backup_count: 5
-
-# ============================================================================
-# PATHS CONFIGURATION
-# ============================================================================
 paths:
-  # RAM disk for logs
-  ram_logs_dir: "/mnt/ram_logs"
+  ram_logs_dir: /mnt/ram_logs
   ram_logs_size_mb: 512
-  
-  # Data directories
-  vector_data_dir: "/var/lib/vector"
-  suricata_data_dir: "/var/lib/suricata"
-  
-  # Configuration directories
-  config_dir: "/etc/ids2"
-  
-  # Deployment scripts
-  deploy_dir: "deploy"
-
-# ============================================================================
-# FEATURE FLAGS
-# ============================================================================
+  vector_data_dir: /var/lib/vector
+  suricata_data_dir: /var/lib/suricata
+  config_dir: /etc/ids2
+  deploy_dir: deploy
+raspberry_pi_remote:
+  host: 192.168.178.66
+  user: pi
+  password: pi
+testing:
+  test_timeout_seconds: 300
+  verbose_output: true
 features:
-  # Enable/disable components
   enable_suricata: true
   enable_vector: true
   enable_redis_fallback: true
   enable_metrics: true
   enable_grafana: true
-  
-  # Advanced features
-  enable_verification_process: false  # Process #5 (optional)
+  enable_verification_process: false
   enable_auto_scaling: false
   enable_rule_updates: false
-  
-  # Development
   debug_mode: false
   dry_run: false
-
-# ============================================================================
-# TIMEOUTS CONFIGURATION
-# ============================================================================
 timeouts:
-  # Service startup
   docker_stack_startup: 120
   vector_startup: 60
   suricata_startup: 60
-  
-  # Connectivity checks
   dns_timeout: 10
   tls_timeout: 10
   bulk_test_timeout: 30
-  
-  # AWS operations
   aws_domain_check: 600
   aws_bulk_upload: 60
-  
-  # Shutdown
   graceful_shutdown: 30
   force_shutdown: 10
-
-# ============================================================================
-# RETRY CONFIGURATION
-# ============================================================================
 retry:
-  # Connectivity
   connectivity_max_attempts: 3
   connectivity_backoff_multiplier: 2
   connectivity_backoff_min: 2
   connectivity_backoff_max: 10
-  
-  # AWS operations
   aws_max_attempts: 5
   aws_backoff_multiplier: 2
   aws_backoff_min: 1
   aws_backoff_max: 30
-  
-  # Docker operations
   docker_max_attempts: 3
   docker_backoff: 5
-
-# ============================================================================
-# HEALTH CHECK CONFIGURATION
-# ============================================================================
 health_checks:
-  # Intervals
   resource_check_interval: 2
   connectivity_check_interval: 30
   service_check_interval: 10
-  
-  # Thresholds
   max_consecutive_failures: 3
   restart_on_failure: true
-  
-  # Endpoints
-  vector_health_url: "http://localhost:8686/health"
-  prometheus_health_url: "http://localhost:9090/-/healthy"
-  grafana_health_url: "http://localhost:3000/api/health"
+  vector_health_url: http://localhost:8686/health
+  prometheus_health_url: http://localhost:9090/-/healthy
+  grafana_health_url: http://localhost:3000/api/health
+api_server:
+  port: 5000
+  host: 0.0.0.0

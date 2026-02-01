@@ -72,6 +72,7 @@ class VectorManager:
         index_prefix = self.aws_config.get('index_prefix', 'ids2-logs')
         bulk_size = self.aws_config.get('bulk_size', 100)
         bulk_timeout = self.aws_config.get('bulk_timeout', 30)
+        buffer_max_size_bytes = self.vector_config.get('buffer_max_size_bytes', 268435456)  # Default to 256MB
         
         # Build TOML configuration
         config = f'''# Vector Configuration for IDS2 SOC Pipeline
@@ -184,7 +185,7 @@ batch.timeout_secs = {bulk_timeout}
 
 # Buffer settings (disk-based for reliability)
 buffer.type = "disk"
-buffer.max_size = 268435456  # 256MB
+buffer.max_size = {buffer_max_size_bytes}
 buffer.when_full = "block"
 
 # Request settings
