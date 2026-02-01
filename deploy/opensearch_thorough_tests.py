@@ -22,6 +22,7 @@ import sys
 import json
 import time
 from typing import Dict, Any, Optional
+from pathlib import Path
 
 import boto3
 from botocore.auth import SigV4Auth
@@ -29,13 +30,28 @@ from botocore.awsrequest import AWSRequest
 import requests
 from requests.auth import HTTPBasicAuth
 
-AWS_PROFILE = 'moi33'
-AWS_REGION = 'us-east-1'
-DOMAIN_NAME = 'ids2-soc-domain'
-ENDPOINT = 'search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com'
-BASE_URL = f'https://{ENDPOINT}'
-MASTER_USER = 'admin'
-MASTER_PASS = 'Admin123!'
+# Add modules directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "python_env" / "modules"))
+
+from config_manager import ConfigManager
+
+# Load configuration
+try:
+    config = ConfigManager()
+    aws_config = config.get_aws_config()
+    opensearch_credentials = config.get_opensearch_credentials()
+    
+    AWS_PROFILE = aws_config['profile']
+    AWS_REGION = aws_config['region']
+    DOMAIN_NAME = aws_config['domain_name']
+    ENDPOINT = aws_config['endpoint']
+    BASE_URL = f'https://{ENDPOINT}'
+    MASTER_USER = opensearch_credentials['master_user']
+    MASTER_PASS = opensearch_credentials['master_pass']
+
+except Exception as e:
+    print(f"❌ Failed to load configuration: {e}")
+    sys.exit(1)
 
 session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
 credentials = session.get_credentials()

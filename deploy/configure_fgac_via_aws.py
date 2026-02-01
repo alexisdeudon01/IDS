@@ -8,12 +8,12 @@ import sys
 import json
 import boto3
 from botocore.exceptions import ClientError
+from pathlib import Path
 
-# Configuration
-AWS_PROFILE = 'moi33'
-AWS_REGION = 'us-east-1'
-DOMAIN_NAME = 'ids2-soc-domain'
-IAM_USER_ARN = 'arn:aws:iam::211125764416:user/alexis'
+# Add modules directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "python_env" / "modules"))
+
+from config_manager import ConfigManager
 
 def configure_fgac_mapping():
     """
@@ -24,6 +24,20 @@ def configure_fgac_mapping():
     print("IDS2 SOC Pipeline - Configure FGAC via AWS API")
     print("="*80)
     
+    # Load configuration
+    try:
+        config = ConfigManager()
+        aws_config = config.get_aws_config()
+        
+        AWS_PROFILE = aws_config['profile']
+        AWS_REGION = aws_config['region']
+        DOMAIN_NAME = aws_config['domain_name']
+        IAM_USER_ARN = aws_config['iam_user_arn']
+        
+    except Exception as e:
+        print(f"❌ Failed to load configuration: {e}")
+        return False
+
     print(f"\n📋 Configuration:")
     print(f"   AWS Profile: {AWS_PROFILE}")
     print(f"   AWS Region: {AWS_REGION}")

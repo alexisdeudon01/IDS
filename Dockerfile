@@ -64,6 +64,8 @@ COPY --chown=ids2:ids2 python_env/ ./python_env/
 COPY --chown=ids2:ids2 config.yaml .
 COPY --chown=ids2:ids2 vector/ ./vector/
 COPY --chown=ids2:ids2 suricata/ ./suricata/
+COPY --chown=ids2:ids2 python_env/templates/ ./python_env/templates/
+COPY --chown=ids2:ids2 python_env/static/ ./python_env/static/
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/.git && \
@@ -78,6 +80,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Expose ports
 EXPOSE 9100
+EXPOSE 5000
 
 # Set entrypoint
 ENTRYPOINT ["python3", "/app/python_env/agent_mp.py"]

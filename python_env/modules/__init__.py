@@ -11,6 +11,7 @@ __author__ = "IDS2 SOC Team"
 # Module exports
 __all__ = [
     "config_manager",
+    "env_utils",
     "resource_controller",
     "connectivity_async",
     "metrics_server",

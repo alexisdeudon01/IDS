@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS2 SOC Pipeline Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>IDS2 SOC Pipeline Dashboard</h1>
+        <div id="status-section" class="card">
+            <h2>Statut du Pipeline</h2>
+            <p>CPU: <span id="cpu-usage">--</span>%</p>
+            <p>RAM: <span id="ram-usage">--</span>%</p>
+            <p>Throttle Level: <span id="throttle-level">--</span></p>
+            <p>AWS Ready: <span id="aws-ready">--</span></p>
+            <p>API Server Running: <span id="api-server-running">--</span></p>
+            <p>Pipeline OK: <span id="pipeline-ok">--</span></p>
+        </div>
+
+        <div id="control-section" class="card">
+            <h2>Contrôle des Services</h2>
+            <div class="service-control">
+                <label for="service-select">Sélectionner un service:</label>
+                <select id="service-select">
+                    <option value="vector">Vector</option>
+                    <option value="redis">Redis</option>
+                    <option value="prometheus">Prometheus</option>
+                    <option value="grafana">Grafana</option>
+                    <option value="suricata">Suricata</option>
+                </select>
+                <button onclick="startService()">Démarrer</button>
+                <button onclick="stopService()">Arrêter</button>
+            </div>
+        </div>
+
+        <div id="config-section" class="card">
+            <h2>Configuration</h2>
+            <pre id="config-display"></pre>
+            <button onclick="fetchConfig()">Charger la Configuration</button>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
