@@ -1,0 +1,107 @@
+{
+    "DomainStatus": {
+        "DomainId": "211125764416/ids2-soc-domain",
+        "DomainName": "ids2-soc-domain",
+        "ARN": "arn:aws:es:us-east-1:211125764416:domain/ids2-soc-domain",
+        "Created": true,
+        "Deleted": true,
+        "Endpoint": "search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com",
+        "Processing": true,
+        "UpgradeProcessing": false,
+        "EngineVersion": "OpenSearch_2.11",
+        "ClusterConfig": {
+            "InstanceType": "t3.small.search",
+            "InstanceCount": 1,
+            "DedicatedMasterEnabled": false,
+            "ZoneAwarenessEnabled": false,
+            "WarmEnabled": false,
+            "ColdStorageOptions": {
+                "Enabled": false
+            },
+            "MultiAZWithStandbyEnabled": false
+        },
+        "EBSOptions": {
+            "EBSEnabled": true,
+            "VolumeType": "gp3",
+            "VolumeSize": 10,
+            "Iops": 3000,
+            "Throughput": 125
+        },
+        "AccessPolicies": "",
+        "IPAddressType": "ipv4",
+        "SnapshotOptions": {
+            "AutomatedSnapshotStartHour": 0
+        },
+        "CognitoOptions": {
+            "Enabled": false
+        },
+        "EncryptionAtRestOptions": {
+            "Enabled": true,
+            "KmsKeyId": "arn:aws:kms:us-east-1:211125764416:key/8d400969-d56d-4d14-9e97-941fec5cb2cf"
+        },
+        "NodeToNodeEncryptionOptions": {
+            "Enabled": true
+        },
+        "AdvancedOptions": {
+            "override_main_response_version": "false",
+            "rest.action.multi.allow_explicit_index": "true"
+        },
+        "ServiceSoftwareOptions": {
+            "CurrentVersion": "OpenSearch_2_11_R20251106-P1",
+            "NewVersion": "",
+            "UpdateAvailable": false,
+            "Cancellable": false,
+            "UpdateStatus": "COMPLETED",
+            "Description": "There is no software update available for this domain.",
+            "AutomatedUpdateDate": "1970-01-01T01:00:00+01:00",
+            "OptionalDeployment": true
+        },
+        "DomainEndpointOptions": {
+            "EnforceHTTPS": true,
+            "TLSSecurityPolicy": "Policy-Min-TLS-1-2-2019-07",
+            "CustomEndpointEnabled": false
+        },
+        "AdvancedSecurityOptions": {
+            "Enabled": true,
+            "InternalUserDatabaseEnabled": true,
+            "AnonymousAuthEnabled": false
+        },
+        "IdentityCenterOptions": {},
+        "AutoTuneOptions": {
+            "State": "DISABLED",
+            "UseOffPeakWindow": false
+        },
+        "ChangeProgressDetails": {
+            "ChangeId": "2ff33d6b-c0d6-41b3-8b82-3962f1e43750",
+            "ConfigChangeStatus": "ApplyingChanges",
+            "StartTime": "2026-02-01T07:54:24.629000+01:00",
+            "LastUpdatedTime": "2026-02-01T07:55:11.091000+01:00"
+        },
+        "OffPeakWindowOptions": {
+            "Enabled": true,
+            "OffPeakWindow": {
+                "WindowStartTime": {
+                    "Hours": 3,
+                    "Minutes": 0
+                }
+            }
+        },
+        "SoftwareUpdateOptions": {
+            "AutoSoftwareUpdateEnabled": false
+        },
+        "DomainProcessingStatus": "Deleting",
+        "ModifyingProperties": [],
+        "AIMLOptions": {
+            "NaturalLanguageQueryGenerationOptions": {
+                "DesiredState": "DISABLED",
+                "CurrentState": "NOT_ENABLED"
+            },
+            "S3VectorsEngine": {
+                "Enabled": false
+            },
+            "ServerlessVectorAcceleration": {
+                "Enabled": false
+            }
+        }
+    }
+}
