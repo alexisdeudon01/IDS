@@ -5,95 +5,119 @@ Uses AWS SigV4 authentication to bypass IP restrictions
 """
 
 import sys
-import json
+import requests
+from requests.auth import HTTPBasicAuth
 import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
-import requests
-from requests.auth import HTTPBasicAuth
+import json
+from pathlib import Path
 
-# Configuration
-AWS_PROFILE = 'moi33'
-AWS_REGION = 'us-east-1'
-DOMAIN_NAME = 'ids2-soc-domain'
-ENDPOINT = 'search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com'
-MASTER_USER = 'admin'
-MASTER_PASS = 'Admin123!'
+# Add modules directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "python_env" / "modules"))
+
+from config_manager import ConfigManager
+
+# Load configuration
+try:
+    config = ConfigManager()
+    aws_config = config.get_aws_config()
+    opensearch_credentials = config.get_opensearch_credentials()
+    
+    DOMAIN_NAME = aws_config['domain_name']
+    AWS_PROFILE = aws_config['profile']
+    AWS_REGION = aws_config['region']
+    ENDPOINT = aws_config['endpoint']
+    MASTER_USER = opensearch_credentials['master_user']
+    MASTER_PASS = opensearch_credentials['master_pass']
+
+except Exception as e:
+    print(f"❌ Failed to load configuration: {e}")
+    sys.exit(1)
 
 def test_with_basic_auth():
     """Test with basic authentication (will fail due to IP restriction)"""
-    print("\n" + "="*80)
-    print("Test 1: Basic Authentication (HTTP Basic Auth)")
-    print("="*80)
+    print(f"\n{'='*80}")
+    print("TEST 1: Basic Authentication (No Resource Policy)")
+    print(f"{'='*80}")
     
-    url = f'https://{ENDPOINT}'
+    url = f'https://{ENDPOINT}/'
     
     try:
+        print(f"\n🔍 Testing: GET {url}")
+        print(f"   Auth: Basic ({MASTER_USER}/{MASTER_PASS})")
+        print(f"   Expected: 200 OK (no resource policy blocking)")
+        
         response = requests.get(
             url,
             auth=HTTPBasicAuth(MASTER_USER, MASTER_PASS),
             timeout=10
         )
         
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text[:200]}")
-        
-        if response.status_code == 200:
-            print("✅ Basic auth successful!")
-            return True
-        else:
-            print(f"❌ Basic auth failed (expected due to IP restriction)")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return False
-
-def test_with_sigv4():
-    """Test with AWS SigV4 authentication"""
-    print("\n" + "="*80)
-    print("Test 2: AWS SigV4 Authentication (Bypasses IP restriction)")
-    print("="*80)
-    
-    # Create boto3 session
-    session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
-    credentials = session.get_credentials()
-    
-    # Create request
-    url = f'https://{ENDPOINT}'
-    request = AWSRequest(method='GET', url=url)
-    
-    # Sign request
-    SigV4Auth(credentials, 'es', AWS_REGION).add_auth(request)
-    
-    # Send request
-    try:
-        response = requests.get(url, headers=dict(request.headers), timeout=10)
-        
-        print(f"Status Code: {response.status_code}")
+        print(f"\n✅ Response: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            print(f"✅ SigV4 auth successful!")
-            print(f"\nCluster Info:")
-            print(f"  Name: {data.get('name', 'N/A')}")
-            print(f"  Version: {data.get('version', {}).get('number', 'N/A')}")
-            print(f"  Distribution: {data.get('version', {}).get('distribution', 'N/A')}")
+            print(f"   Cluster: {data.get('cluster_name', 'N/A')}")
+            print(f"   Version: {data['version'].get('number', 'N/A')}")
+            print(f"\n✅ SUCCESS: Basic Auth works with no resource policy!")
             return True
         else:
-            print(f"❌ SigV4 auth failed")
-            print(f"Response: {response.text[:200]}")
+            print(f"   Body: {response.text[:200]}")
+            print(f"\n❌ FAILED: Unexpected status code")
             return False
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"\n❌ ERROR: {e}")
+        return False
+
+def test_sigv4_auth(endpoint):
+    """Test AWS SigV4 Authentication"""
+    print(f"\n{'='*80}")
+    print("TEST 2: AWS SigV4 Authentication (No Resource Policy)")
+    print(f"{'='*80}")
+    
+    url = f'https://{endpoint}/'
+    
+    try:
+        print(f"\n🔍 Testing: GET {url}")
+        print(f"   Auth: AWS SigV4 (IAM user: alexis)")
+        print(f"   Expected: 200 OK or 403 (depends on FGAC role mapping)")
+        
+        session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
+        credentials = session.get_credentials()
+        
+        request = AWSRequest(method='GET', url=url)
+        SigV4Auth(credentials, 'es', AWS_REGION).add_auth(request)
+        
+        response = requests.get(url, headers=dict(request.headers), timeout=10)
+        
+        print(f"\n✅ Response: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   Cluster: {data.get('cluster_name', 'N/A')}")
+            print(f"\n✅ SUCCESS: SigV4 works (IAM user mapped in FGAC)")
+            return True
+        elif response.status_code == 403:
+            print(f"   Message: {response.text[:200]}")
+            print(f"\n⚠️  EXPECTED: SigV4 blocked by FGAC (IAM user not mapped)")
+            print(f"   This is normal - no resource policy, but FGAC controls access")
+            return True
+        else:
+            print(f"   Body: {response.text[:200]}")
+            print(f"\n❌ FAILED: Unexpected status code")
+            return False
+            
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
         return False
 
 def test_cluster_health():
     """Test cluster health endpoint"""
-    print("\n" + "="*80)
+    print(f"\n{'='*80}")
     print("Test 3: Cluster Health Check")
-    print("="*80)
+    print(f"{'='*80}")
     
     session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
     credentials = session.get_credentials()
@@ -119,14 +143,14 @@ def test_cluster_health():
             return False
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"\n❌ ERROR: {e}")
         return False
 
 def test_index_creation():
     """Test creating a test index"""
-    print("\n" + "="*80)
+    print(f"\n{'='*80}")
     print("Test 4: Index Creation Test")
-    print("="*80)
+    print(f"{'='*80}")
     
     session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
     credentials = session.get_credentials()
@@ -168,14 +192,14 @@ def test_index_creation():
             return False
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"\n❌ ERROR: {e}")
         return False
 
 def update_config_yaml():
     """Update config.yaml with endpoint"""
-    print("\n" + "="*80)
+    print(f"\n{'='*80}")
     print("Updating config.yaml")
-    print("="*80)
+    print(f"{'='*80}")
     
     config_file = 'config.yaml'
     endpoint_url = f'https://{ENDPOINT}'
@@ -211,9 +235,9 @@ def update_config_yaml():
 
 def main():
     """Main test execution"""
-    print("\n" + "="*80)
+    print(f"\n{'='*80}")
     print("IDS2 SOC Pipeline - OpenSearch Connection Test")
-    print("="*80)
+    print(f"{'='*80}")
     
     print(f"\n📋 Configuration:")
     print(f"   AWS Profile: {AWS_PROFILE}")
@@ -239,9 +263,9 @@ def main():
         results['config_update'] = update_config_yaml()
     
     # Summary
-    print("\n" + "="*80)
+    print(f"\n{'='*80}")
     print("Test Summary")
-    print("="*80)
+    print(f"{'='*80}\n")
     
     for test, passed in results.items():
         status = "✅ PASS" if passed else "❌ FAIL"

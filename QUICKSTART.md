@@ -181,33 +181,11 @@ docker-compose -f docker/docker-compose.yml up -d
 
 ## Configuration Variables
 
-All configuration is centralized in these files:
-
-### `deploy/create_opensearch_domain.py`
-```python
-CONFIG = {
-    'aws_profile': 'moi33',
-    'aws_region': 'us-east-1',
-    'domain_name': 'ids2-soc-domain',
-    'instance_type': 't3.small.search',
-    'master_username': 'admin',
-    'master_password': 'Admin123!',  # CHANGE THIS!
-    'allowed_ip': '192.168.178.66/32',
-}
-```
-
-### `deploy/run_all_tests.py`
-```python
-CONFIG = {
-    'pi_host': '192.168.178.66',
-    'pi_user': 'pi',
-    'pi_password': 'pi',
-    'project_dir': '/home/pi/ids2-soc-pipeline',
-}
-```
+Toutes les configurations sont centralisées dans `config.yaml` et gérées par le module `ConfigManager`.
 
 ### `config.yaml`
 ```yaml
+# Sections d'exemple :
 raspberry_pi:
   ip_address: "192.168.178.66"
   hostname: "192.168.178.66"
@@ -216,6 +194,15 @@ aws:
   profile: "moi33"
   region: "us-east-1"
   opensearch_domain: "ids2-soc-domain"
+
+opensearch_credentials:
+  master_user: "OPENSEARCH_MASTER_USER" # Chargé depuis la variable d'environnement
+  master_pass: "OPENSEARCH_MASTER_PASS" # Chargé depuis la variable d'environnement
+
+raspberry_pi_remote:
+  host: "192.168.178.66"
+  user: "pi"
+  password: "pi" # Utiliser une clé SSH si disponible, sinon définir cette variable d'environnement
 ```
 
 ---

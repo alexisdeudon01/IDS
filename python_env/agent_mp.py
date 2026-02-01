@@ -36,6 +36,7 @@ from modules.docker_manager import DockerManager
 from modules.vector_manager import VectorManager
 from modules.suricata_manager import SuricataManager
 from modules.git_workflow import GitWorkflow
+from modules.api_server import APIServer # Nouvelle importation
 
 # Configure logging
 logging.basicConfig(
@@ -90,6 +91,12 @@ class IDS2Agent:
         self.vector_manager = VectorManager(self.config)
         self.suricata_manager = SuricataManager(self.config)
         self.git_workflow = GitWorkflow(self.config)
+        self.api_server = APIServer(
+            self.config,
+            self.shared_state,
+            self.docker_manager, # Passer DockerManager
+            self.suricata_manager # Passer SuricataManager
+        ) # Initialisation de l'API Flask
         
         # Shutdown event
         self.shutdown_event = Event()
@@ -119,6 +126,7 @@ class IDS2Agent:
         self.shared_state['vector_running'] = False
         self.shared_state['suricata_running'] = False
         self.shared_state['redis_running'] = False
+        self.shared_state['api_server_running'] = False # Nouvel état pour l'API Flask
         self.shared_state['pipeline_ok'] = False
         
         # Counters
@@ -169,6 +177,16 @@ class IDS2Agent:
                 logger.error("Metrics Server failed to start")
                 return False
             
+            # Start Process #5: API Server
+            logger.info("Starting API Server (Process #5)...")
+            self.api_server.start()
+            time.sleep(1)
+
+            if not self.api_server.is_alive():
+                logger.error("API Server failed to start")
+                return False
+            self.shared_state['api_server_running'] = True
+            
             logger.info("All child processes started successfully")
             return True
             
@@ -181,6 +199,10 @@ class IDS2Agent:
         logger.info("Stopping child processes...")
         
         # Stop in reverse order
+        if self.api_server.is_alive():
+            logger.info("Stopping API Server...")
+            self.api_server.stop()
+
         if self.metrics_server.is_alive():
             logger.info("Stopping Metrics Server...")
             self.metrics_server.stop()
@@ -466,15 +488,21 @@ class IDS2Agent:
                     logger.error("Metrics Server died, restarting...")
                     self.metrics_server.start()
                 
+                if not self.api_server.is_alive():
+                    logger.error("API Server died, restarting...")
+                    self.api_server.start()
+                    self.shared_state['api_server_running'] = True
+                
                 # Log status periodically
                 cpu = self.shared_state.get('cpu_percent', 0)
                 ram = self.shared_state.get('ram_percent', 0)
                 throttle = self.shared_state.get('throttle_level', 0)
                 aws_ready = self.shared_state.get('aws_ready', False)
+                api_running = self.shared_state.get('api_server_running', False)
                 
                 logger.info(
                     f"Status - CPU: {cpu:.1f}%, RAM: {ram:.1f}%, "
-                    f"Throttle: {throttle}, AWS: {aws_ready}"
+                    f"Throttle: {throttle}, AWS: {aws_ready}, API: {api_running}"
                 )
                 
                 # Sleep

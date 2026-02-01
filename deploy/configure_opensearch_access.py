@@ -8,12 +8,12 @@ import sys
 import json
 import requests
 from requests.auth import HTTPBasicAuth
+from pathlib import Path
 
-# Configuration
-ENDPOINT = 'search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com'
-MASTER_USER = 'admin'
-MASTER_PASS = 'Admin123!'
-IAM_USER_ARN = 'arn:aws:iam::211125764416:user/alexis'
+# Add modules directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "python_env" / "modules"))
+
+from config_manager import ConfigManager
 
 def map_iam_user_to_role():
     """Map IAM user to all_access role"""
@@ -21,6 +21,23 @@ def map_iam_user_to_role():
     print("Mapping IAM User to all_access Role")
     print("="*80)
     
+    # Load configuration
+    try:
+        config = ConfigManager()
+        aws_config = config.get_aws_config()
+        opensearch_credentials = config.get_opensearch_credentials()
+        
+        ENDPOINT = aws_config['endpoint']
+        MASTER_USER = opensearch_credentials['master_user']
+        MASTER_PASS = opensearch_credentials['master_pass']
+        IAM_USER_ARN = aws_config['iam_user_arn']
+        AWS_PROFILE = aws_config['profile']
+        AWS_REGION = aws_config['region']
+        
+    except Exception as e:
+        print(f"❌ Failed to load configuration: {e}")
+        return False
+
     url = f'https://{ENDPOINT}/_plugins/_security/api/rolesmapping/all_access'
     
     # Get current role mapping
@@ -96,12 +113,25 @@ def verify_access():
     from botocore.auth import SigV4Auth
     from botocore.awsrequest import AWSRequest
     
-    session = boto3.Session(profile_name='moi33', region_name='us-east-1')
+    # Load configuration
+    try:
+        config = ConfigManager()
+        aws_config = config.get_aws_config()
+        
+        ENDPOINT = aws_config['endpoint']
+        AWS_PROFILE = aws_config['profile']
+        AWS_REGION = aws_config['region']
+        
+    except Exception as e:
+        print(f"❌ Failed to load configuration for verification: {e}")
+        return False
+
+    session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
     credentials = session.get_credentials()
     
     url = f'https://{ENDPOINT}'
     request = AWSRequest(method='GET', url=url)
-    SigV4Auth(credentials, 'es', 'us-east-1').add_auth(request)
+    SigV4Auth(credentials, 'es', AWS_REGION).add_auth(request)
     
     try:
         response = requests.get(url, headers=dict(request.headers), timeout=10)
@@ -128,6 +158,20 @@ def main():
     print("IDS2 SOC Pipeline - Configure OpenSearch Access")
     print("="*80)
     
+    # Load configuration for display
+    try:
+        config = ConfigManager()
+        aws_config = config.get_aws_config()
+        opensearch_credentials = config.get_opensearch_credentials()
+        
+        ENDPOINT = aws_config['endpoint']
+        MASTER_USER = opensearch_credentials['master_user']
+        IAM_USER_ARN = aws_config['iam_user_arn']
+        
+    except Exception as e:
+        print(f"❌ Failed to load configuration for display: {e}")
+        return 1
+
     print(f"\n📋 Configuration:")
     print(f"   Endpoint: {ENDPOINT}")
     print(f"   Master User: {MASTER_USER}")
