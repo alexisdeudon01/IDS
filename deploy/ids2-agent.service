@@ -1,0 +1,46 @@
+[Unit]
+Description=IDS2 SOC Pipeline - Multi-Process Agent
+Documentation=https://github.com/your-repo/ids2-soc-pipeline
+After=network.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/ids2-soc-pipeline
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# Main process
+ExecStart=/usr/bin/python3 /home/pi/ids2-soc-pipeline/python_env/agent_mp.py
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Resource limits (additional safety)
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ids2-agent
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

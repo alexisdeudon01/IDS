@@ -1,0 +1,243 @@
+# ============================================================================
+# IDS2 SOC Pipeline - Docker Compose Stack
+# Raspberry Pi 5 Optimized (8GB RAM, 4 cores)
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # VECTOR - Log Ingestion & Transformation
+  # ==========================================================================
+  vector:
+    image: timberio/vector:0.34.0-debian
+    container_name: ids2-vector
+    restart: unless-stopped
+    
+    # Resource limits (Raspberry Pi optimized)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Volumes
+    volumes:
+      # Configuration
+      - ../vector/vector.toml:/etc/vector/vector.toml:ro
+      
+      # Data directory (for disk buffer)
+      - vector-data:/var/lib/vector
+      
+      # Suricata logs (read-only)
+      - /mnt/ram_logs:/mnt/ram_logs:ro
+    
+    # Ports
+    ports:
+      - "9101:9101"  # Prometheus metrics
+      - "8686:8686"  # Health check API
+    
+    # Environment
+    environment:
+      - VECTOR_CONFIG=/etc/vector/vector.toml
+      - VECTOR_LOG=info
+      - VECTOR_REQUIRE_HEALTHY=true
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8686/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Network
+    networks:
+      - ids2-network
+    
+    # Dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ==========================================================================
+  # REDIS - Fallback Buffer
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ids2-redis
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Command (optimized for Raspberry Pi)
+    command: >
+      redis-server
+      --maxmemory 384mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+      --appendfsync everysec
+      --tcp-backlog 128
+      --timeout 300
+      --tcp-keepalive 60
+    
+    # Volumes
+    volumes:
+      - redis-data:/data
+    
+    # Ports
+    ports:
+      - "6379:6379"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    # Network
+    networks:
+      - ids2-network
+
+  # ==========================================================================
+  # PROMETHEUS - Metrics Storage
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: ids2-prometheus
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Command (optimized for Raspberry Pi)
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.retention.size=2GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    
+    # Volumes
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    
+    # Ports
+    ports:
+      - "9090:9090"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Network
+    networks:
+      - ids2-network
+
+  # ==========================================================================
+  # GRAFANA - Visualization
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: ids2-grafana
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Environment
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_INSTALL_PLUGINS=
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_LOG_LEVEL=info
+    
+    # Volumes
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    
+    # Ports
+    ports:
+      - "3000:3000"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Network
+    networks:
+      - ids2-network
+    
+    # Dependencies
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  ids2-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  vector-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
