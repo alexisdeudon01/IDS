@@ -1,6 +1,7 @@
 # IDS2 SOC Pipeline - Raspberry Pi 5
 
 A production-ready, resource-optimized Security Operations Center (SOC) pipeline for Raspberry Pi 5, featuring network intrusion detection, log ingestion, and real-time monitoring.
+This repository is dedicated to the IDS2 pipeline implementation only (no auxiliary demo scaffolds).
 
 ![Architecture](https://img.shields.io/badge/Architecture-Multi--Process-blue)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%205-red)
