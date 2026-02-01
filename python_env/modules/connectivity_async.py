@@ -46,8 +46,6 @@ class ConnectivityChecker:
         """
         self.config = config_manager
         self.shared_state = shared_state
-        self.aws_config = config_manager.get_aws_config()
-        
         # Check interval
         self.check_interval = 30.0  # seconds
         
@@ -184,13 +182,20 @@ class ConnectivityChecker:
             logger.error(f"OpenSearch bulk test failed: {e}")
             return False, str(e)
     
+    def _get_opensearch_endpoint(self) -> Optional[str]:
+        """Get the latest OpenSearch endpoint from shared state or config."""
+        shared_endpoint = self.shared_state.get('opensearch_endpoint')
+        if shared_endpoint:
+            return shared_endpoint
+        return self.config.get('aws.opensearch_endpoint')
+
     async def _run_all_checks(self) -> None:
         """
         Run all connectivity checks in parallel
         
         This is the core async function that runs DNS, TLS, and bulk tests concurrently.
         """
-        endpoint = self.aws_config.get('endpoint')
+        endpoint = self._get_opensearch_endpoint()
         
         if not endpoint:
             logger.error("No OpenSearch endpoint configured")
