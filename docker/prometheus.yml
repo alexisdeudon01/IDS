@@ -1,0 +1,99 @@
+# ============================================================================
+# Prometheus Configuration for IDS2 SOC Pipeline
+# Raspberry Pi 5 Optimized
+# ============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  
+  # External labels
+  external_labels:
+    cluster: 'ids2-soc'
+    environment: 'production'
+    platform: 'raspberry-pi-5'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: []
+
+# Rule files (optional)
+# rule_files:
+#   - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # ==========================================================================
+  # Prometheus self-monitoring
+  # ==========================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # ==========================================================================
+  # IDS2 Agent Metrics (Process #4 - Metrics Server)
+  # ==========================================================================
+  - job_name: 'ids2-agent'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          service: 'ids2-agent'
+          component: 'multi-process-agent'
+    
+    # Scrape more frequently for agent metrics
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # ==========================================================================
+  # Vector Metrics
+  # ==========================================================================
+  - job_name: 'vector'
+    static_configs:
+      - targets: ['vector:9101']
+        labels:
+          service: 'vector'
+          component: 'log-ingestion'
+    
+    scrape_interval: 15s
+
+  # ==========================================================================
+  # Redis Exporter (if installed)
+  # ==========================================================================
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+  #       labels:
+  #         service: 'redis'
+  #         component: 'buffer'
+
+  # ==========================================================================
+  # Node Exporter (Raspberry Pi system metrics)
+  # ==========================================================================
+  # - job_name: 'node-exporter'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:9100']
+  #       labels:
+  #         service: 'node-exporter'
+  #         component: 'system-metrics'
+
+  # ==========================================================================
+  # Docker Container Metrics (cAdvisor)
+  # ==========================================================================
+  # - job_name: 'cadvisor'
+  #   static_configs:
+  #     - targets: ['cadvisor:8080']
+  #       labels:
+  #         service: 'cadvisor'
+  #         component: 'container-metrics'
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+# Configured via command-line flags in docker-compose.yml:
+# - storage.tsdb.retention.time=7d
+# - storage.tsdb.retention.size=2GB
