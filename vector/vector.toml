@@ -21,6 +21,12 @@ read_from = "end"  # Start reading from end (don't reprocess old logs)
 fingerprint.strategy = "device_and_inode"  # Track file identity
 max_line_bytes = 102400  # 100KB max line size (handles large events)
 
+# Additional HTTP ingestion source for E2E testing
+[sources.http_ingest]
+type = "http"
+address = "0.0.0.0:8282"
+decoding.codec = "json"
+
 # ============================================================================
 # TRANSFORMS - Data processing and enrichment
 # ============================================================================
@@ -34,10 +40,18 @@ source = """
 . = parse_json!(.message)
 """
 
+# Passthrough for HTTP source (no-op, ensures schema compatibility)
+[transforms.passthrough_http]
+type = "remap"
+inputs = ["http_ingest"]
+source = """
+. = .
+"""
+
 # Transform 2: Add Elastic Common Schema (ECS) fields
 [transforms.add_ecs_fields]
 type = "remap"
-inputs = ["parse_json"]
+inputs = ["parse_json", "passthrough_http"]
 source = """
 # ============================================================================
 # ECS Base Fields
@@ -178,7 +192,7 @@ source = """
 [sinks.opensearch]
 type = "elasticsearch"
 inputs = ["route_to_index"]
-endpoint = "https://search-ids2-soc-domain-xxxxx.us-east-1.es.amazonaws.com"
+endpoint = "https://search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com"
 mode = "bulk"
 
 # Index configuration
@@ -205,7 +219,7 @@ request.retry_max_duration_secs = 300
 
 # Health check
 healthcheck.enabled = true
-healthcheck.uri = "https://search-ids2-soc-domain-xxxxx.us-east-1.es.amazonaws.com/_cluster/health"
+healthcheck.uri = "https://search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com/_cluster/health"
 
 # Encoding
 encoding.codec = "json"

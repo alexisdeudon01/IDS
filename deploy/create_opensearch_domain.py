@@ -121,11 +121,6 @@ class OpenSearchDomainManager:
                     "Principal": {"AWS": "*"},
                     "Action": "es:*",
                     "Resource": f"arn:aws:es:{self.config['aws_region']}:*:domain/{self.config['domain_name']}/*",
-                    "Condition": {
-                        "IpAddress": {
-                            "aws:SourceIp": [self.config['allowed_ip']]
-                        }
-                    }
                 }
             ]
         }

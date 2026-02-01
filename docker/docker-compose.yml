@@ -1,4 +1,3 @@
-
 # ============================================================================
 # IDS2 SOC Pipeline - Docker Compose Stack
 # Raspberry Pi 5 Optimized (8GB RAM, 4 cores)
@@ -108,17 +107,23 @@ services:
       
       # Suricata logs (read-only)
       - /mnt/ram_logs:/mnt/ram_logs:ro
+
+      # AWS credentials for SigV4
+      - ~/.aws:/root/.aws:ro
     
     # Ports
     ports:
       - "9101:9101"  # Prometheus metrics
       - "8686:8686"  # Health check API
+      - "8282:8282"  # HTTP ingest for E2E testing
     
     # Environment
     environment:
       - VECTOR_CONFIG=/etc/vector/vector.toml
       - VECTOR_LOG=info
       - VECTOR_REQUIRE_HEALTHY=true
+      - AWS_PROFILE=moi33
+      - AWS_REGION=us-east-1
     
     # Health check
     healthcheck:

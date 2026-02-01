@@ -44,7 +44,7 @@ aws:
   
   # OpenSearch Domain
   opensearch_domain: "ids2-soc-domain"
-  opensearch_endpoint: ""  # Will be auto-detected or set manually
+  opensearch_endpoint: "https://search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com"  # Will be auto-detected or set manually
   
   # Index configuration
   index_prefix: "ids2-logs"
