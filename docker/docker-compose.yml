@@ -1,3 +1,4 @@
+
 # ============================================================================
 # IDS2 SOC Pipeline - Docker Compose Stack
 # Raspberry Pi 5 Optimized (8GB RAM, 4 cores)
@@ -6,6 +7,79 @@
 version: '3.8'
 
 services:
+  # ==========================================================================
+  # IDS2 AGENT - Multi-Process Python Orchestrator
+  # ==========================================================================
+  ids2-agent:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ids2-agent:latest
+    container_name: ids2-agent
+    restart: unless-stopped
+    
+    # Resource limits (Raspberry Pi optimized)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2048M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
+    
+    # Volumes
+    volumes:
+      # Configuration (read-only)
+      - ../config.yaml:/app/config.yaml:ro
+      
+      # AWS credentials (read-only)
+      - ~/.aws:/home/ids2/.aws:ro
+      
+      # Git repository (for auto-commit)
+      - ../.git:/app/.git:rw
+      
+      # Logs directory
+      - agent-logs:/app/logs
+      
+      # RAM logs (shared with Suricata)
+      - /mnt/ram_logs:/mnt/ram_logs:ro
+      
+      # Docker socket (for managing containers)
+      - /var/run/docker.sock:/var/run/docker.sock
+    
+    # Ports
+    ports:
+      - "9100:9100"  # Prometheus metrics
+    
+    # Environment
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AWS_PROFILE=moi33
+      - GIT_AUTHOR_NAME=IDS2 Agent
+      - GIT_AUTHOR_EMAIL=ids2@localhost
+      - GIT_COMMITTER_NAME=IDS2 Agent
+      - GIT_COMMITTER_EMAIL=ids2@localhost
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9100/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Network
+    networks:
+      - ids2-network
+    
+    # Dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
   # ==========================================================================
   # VECTOR - Log Ingestion & Transformation
   # ==========================================================================
@@ -233,6 +307,8 @@ networks:
 # VOLUMES
 # ============================================================================
 volumes:
+  agent-logs:
+    driver: local
   vector-data:
     driver: local
   redis-data:
