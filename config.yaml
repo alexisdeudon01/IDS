@@ -20,7 +20,7 @@ aws:
   profile: moi33
   region: us-east-1
   opensearch_domain: ids2-soc-domain
-  opensearch_endpoint: https://search-ids2-soc-domain-7p7ddhpiegpwgtk77rn7xn53v4.us-east-1.es.amazonaws.com
+  opensearch_endpoint: https://N/A
   iam_user_arn: '"arn:aws:iam::211125764416:user/alexis"'
   index_prefix: ids2-logs
   index_pattern: ids2-logs-*
