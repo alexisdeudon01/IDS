@@ -113,6 +113,7 @@ class IDS2Agent:
         self.shared_state['tls_ok'] = False
         self.shared_state['opensearch_ok'] = False
         self.shared_state['aws_ready'] = False
+        self.shared_state['opensearch_endpoint'] = self.config.get('aws.opensearch_endpoint')
         
         # Service status
         self.shared_state['vector_running'] = False
@@ -256,6 +257,9 @@ class IDS2Agent:
             return False
         
         logger.info(f"OpenSearch endpoint: {endpoint}")
+
+        # Share endpoint for connectivity checks
+        self.shared_state['opensearch_endpoint'] = endpoint
         
         # Update config with endpoint if not set
         if not self.config.get('aws.opensearch_endpoint'):
